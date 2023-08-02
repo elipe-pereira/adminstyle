@@ -1,3 +1,3 @@
-# CHangelog
+# Changelog
 #### AdminStyle
 
