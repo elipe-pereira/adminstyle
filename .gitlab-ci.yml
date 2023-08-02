@@ -1,0 +1,109 @@
+.create-deb-package: &create-deb-package
+  - echo "Criando pasta DEBIAN"
+  - ssh "$ssh_access" "! test -d /tmp/$package/DEBIAN || rm -rf /tmp/$package"
+  - ssh "$ssh_access" "mkdir -p /tmp/$package/DEBIAN"
+  
+  - echo "Adicionando parametros essenciais ao arquivo control"
+  - ssh "$ssh_access" "echo Section:$section >> $control_file"
+  - ssh "$ssh_access" "echo Package:$package >> $control_file"
+  - ssh "$ssh_access" "echo Priority:$priority >> $control_file"
+  - ssh "$ssh_access" "echo Version:$version >> $control_file"
+  - ssh "$ssh_access" "echo Architecture:$architecture >> $control_file"
+  - ssh "$ssh_access" "echo Maintainer:$maintainer >> $control_file"
+  - ssh "$ssh_access" "echo Depends:$depends >> $control_file"
+  - ssh "$ssh_access" "echo Description:$description >> $control_file"
+  
+  - echo "Criando arquivo preinst localmente"
+  - echo "$cmd_preinst" >> /tmp/preinst-adminstyle
+  
+  - echo "Criando arquivo postinst localmente"
+  - echo "$cmd_postinst" >> /tmp/postinst-adminstyle
+
+  - echo "Criando arquivo postrm localmente"
+  - echo "$cmd_postrm" >> /tmp/postrm-adminstyle
+
+  - echo "Copiando arquivos"
+  - scp /tmp/preinst-adminstyle "$ssh_access":/tmp/"$package"/DEBIAN/preinst
+  - scp /tmp/postinst-adminstyle "$ssh_access":/tmp/"$package"/DEBIAN/postinst
+  - scp /tmp/postrm-adminstyle "$ssh_access":/tmp/"$package"/DEBIAN/postrm
+
+  - echo "Remendo arquivos"
+  - rm /tmp/preinst-adminstyle
+  - rm /tmp/postinst-adminstyle
+  - rm /tmp/postrm-adminstyle
+
+  - echo "Dando permissão de execução aos arquivos dentro da pasta DEBIAN"
+  - ssh "$ssh_access" "chmod +x /tmp/$package/DEBIAN/*"
+
+  - echo "Criando pasta e transferindo arquivo do repositório"
+  - ssh "$ssh_access" "mkdir -p /tmp/$package/root/.vim/colors"
+  - rsync -av --no-o --no-g molokai.vim "$ssh_access":/tmp/"$package"/root/.vim/colors
+  - rsync -av --no-o --no-g .vimrc "$ssh_access":/tmp/"$package"/root/.vimrc
+  - rsync -av --no-o --no-g .bashrc "$ssh_access":/tmp/"$package"/root/.bashrc
+
+  - echo "Deixando o usuário root como dono dos arquivos"
+  - ssh "$ssh_access" "chown -R root:root /tmp/$package"
+
+  - echo "Efetuando o empacotamento"
+  - ssh "$ssh_access" "dpkg-deb -Zxz -b /tmp/$package /tmp"
+
+  - echo "Enviando arquivo empacotado para o repositório"
+  - ssh "$ssh_access" "reprepro -b $repo_path/$distro includedeb $release /tmp/'$package'_'$version'_'$architecture'.deb"
+
+  - echo "Limpando arquivos"
+  - ssh "$ssh_access" "test -d /tmp/$package/DEBIAN && rm -rf /tmp/$package*"
+
+stages:
+  - deploy-teste
+  - deploy-prod
+variables:
+  ssh_user: root
+  server: valentino
+  ssh_access: "$ssh_user@$server"
+  package: hanokh-adminstyle
+  control_file: "/tmp/$package/DEBIAN/control"
+  maintainer: "Hanokh Software Labs"
+  depends: "vim,net-tools,tcpdump,htop"
+  description: "Estilos e configurações para o administrador do sistema"
+  cmd_preinst: "#!/bin/bash \n
+  "
+  cmd_postinst: "#!/bin/bash \n
+  chown -R root:root /root/.vim \n
+  chown root:root /root/.vimrc \n
+  chmod 0644 /etc/hosts \n
+  "
+  cmd_postrm: "#!/bin/bash \n
+  "
+Deploy teste:
+  stage: deploy-teste
+
+  variables:
+    repo_path: /srv/repo/testing
+    distro: debian
+    release: hanokh
+    priority: optional
+    version: "1.0.0"
+    architecture: all
+  
+  script:
+    - *create-deb-package
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+
+Deploy prod:
+  stage: deploy-prod
+
+  variables:
+    repo_path: /srv/repo/packages
+    distro: debian
+    release: hanokh
+    priority: optional
+    version: $CI_COMMIT_TAG
+    architecture: all
+
+  script:
+    - *create-deb-package
+
+  rules:
+    - if: $CI_COMMIT_TAG
