@@ -35,11 +35,13 @@
   - echo "Dando permissão de execução aos arquivos dentro da pasta DEBIAN"
   - ssh "$ssh_access" "chmod +x /tmp/$package/DEBIAN/*"
 
-  - echo "Criando pasta e transferindo arquivo do repositório"
+  - echo "Criando pastas e transferindo arquivos do repositório"
   - ssh "$ssh_access" "mkdir -p /tmp/$package/root/.vim/colors"
+  - ssh "$ssh_access" "mkdir -p /tmp/$package/etc/cron.d"
   - rsync -av --no-o --no-g molokai.vim "$ssh_access":/tmp/"$package"/root/.vim/colors
   - rsync -av --no-o --no-g .vimrc "$ssh_access":/tmp/"$package"/root/.vimrc
   - rsync -av --no-o --no-g .bashrc "$ssh_access":/tmp/"$package"/root/.bashrc
+  - rsync -av --no-o --no-g adminstyle.cron "$ssh_access":/tmp/"$package"/etc/cron.d/adminstyle
 
   - echo "Deixando o usuário root como dono dos arquivos"
   - ssh "$ssh_access" "chown -R root:root /tmp/$package"
@@ -71,6 +73,8 @@ variables:
   chown -R root:root /root/.vim \n
   chown root:root /root/.vimrc \n
   chmod 0644 /etc/hosts \n
+  chown root:root /etc/cron.d/adminstyle \n
+  chmod 0644 /etc/cron.d/adminstyle \n
   "
   cmd_postrm: "#!/bin/bash \n
   "
@@ -82,7 +86,7 @@ Deploy teste:
     distro: debian
     release: hanokh
     priority: optional
-    version: "1.0.0-2"
+    version: "1.1.0"
     architecture: all
   
   script:
