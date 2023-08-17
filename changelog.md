@@ -7,3 +7,4 @@
 - Tema molokai para vim
 - Dependencias - vim, net-tools, tcpdump e htop.
 - .bashrc personalizado
+- .vimrc no home do root com configurações personalizadas, incluindo tema molokai ativo.
